@@ -33,6 +33,8 @@ class GoogleSheetsManager:
                 self.client = gspread.authorize(credentials)
                 self.connected = True
                 st.session_state['deployment_mode'] = 'gsheets'
+                # Initialize custom tables data structure
+                self.initialize_custom_tables()
                 return True
             
             # Check if credentials are stored as environment variables
@@ -46,6 +48,8 @@ class GoogleSheetsManager:
                 self.client = gspread.authorize(credentials)
                 self.connected = True
                 st.session_state['deployment_mode'] = 'gsheets'
+                # Initialize custom tables data structure
+                self.initialize_custom_tables()
                 return True
                 
             # Check if credentials file exists
@@ -58,6 +62,8 @@ class GoogleSheetsManager:
                 self.client = gspread.authorize(credentials)
                 self.connected = True
                 st.session_state['deployment_mode'] = 'gsheets'
+                # Initialize custom tables data structure
+                self.initialize_custom_tables()
                 return True
                 
             else:
@@ -68,6 +74,90 @@ class GoogleSheetsManager:
             st.error(f"Failed to connect to Google Sheets: {str(e)}")
             st.session_state['deployment_mode'] = 'local'
             return False
+            
+    def initialize_custom_tables(self):
+        """Initialize custom tables data structure if it doesn't exist"""
+        try:
+            # Check if custom tables data exists
+            custom_tables_df = self.read_dataframe(None, 'custom_tables.xlsx')
+            if custom_tables_df.empty:
+                # Create default tables structure
+                default_tables = [
+                    {
+                        'table_name': 'KML Tracking',
+                        'description': 'Track KML files and approval status',
+                        'fields': str([
+                            {'name': 'Date', 'type': 'Date', 'required': True, 'default': ''},
+                            {'name': 'User', 'type': 'Text', 'required': True, 'default': ''},
+                            {'name': 'KML_Count_Sent', 'type': 'Number', 'required': True, 'default': '0'},
+                            {'name': 'Total_Area', 'type': 'Number', 'required': True, 'default': '0'},
+                            {'name': 'Area_Approved', 'type': 'Number', 'required': True, 'default': '0'},
+                            {'name': 'Approval_Date', 'type': 'Date', 'required': False, 'default': ''},
+                            {'name': 'Status', 'type': 'Text', 'required': True, 'default': 'Pending'},
+                            {'name': 'Remarks', 'type': 'Text', 'required': False, 'default': ''}
+                        ]),
+                        'created_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'table_type': 'system'
+                    },
+                    {
+                        'table_name': 'Plantation Records',
+                        'description': 'Track plantation activities and progress',
+                        'fields': str([
+                            {'name': 'Date', 'type': 'Date', 'required': True, 'default': ''},
+                            {'name': 'User', 'type': 'Text', 'required': True, 'default': ''},
+                            {'name': 'Plot_Code', 'type': 'Text', 'required': True, 'default': ''},
+                            {'name': 'Area_Planted', 'type': 'Number', 'required': True, 'default': '0'},
+                            {'name': 'Farmer_Covered', 'type': 'Number', 'required': True, 'default': '0'},
+                            {'name': 'Trees_Planted', 'type': 'Number', 'required': True, 'default': '0'},
+                            {'name': 'Pits_Dug', 'type': 'Number', 'required': True, 'default': '0'},
+                            {'name': 'Status', 'type': 'Text', 'required': True, 'default': 'In Progress'}
+                        ]),
+                        'created_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'table_type': 'system'
+                    }
+                ]
+                
+                # Create DataFrame and store
+                custom_tables_df = pd.DataFrame(default_tables)
+                self.write_dataframe(None, 'custom_tables.xlsx', custom_tables_df)
+                
+                # Store in session state for immediate access
+                st.session_state['data_master_custom_tables'] = custom_tables_df
+                
+            # Check if schema extensions data exists
+            schema_extensions_df = self.read_dataframe(None, 'schema_extensions.xlsx')
+            if schema_extensions_df.empty:
+                # Create default schema extensions
+                default_extensions = [
+                    {
+                        'table_type': 'KML Tracking',
+                        'field_name': 'Status',
+                        'field_type': 'Dropdown',
+                        'default_value': 'Pending',
+                        'is_required': True,
+                        'dropdown_options': 'Pending,Approved,Rejected,Under Review',
+                        'description': 'Current status of the KML file'
+                    },
+                    {
+                        'table_type': 'Plantation Records',
+                        'field_name': 'Status',
+                        'field_type': 'Dropdown',
+                        'default_value': 'In Progress',
+                        'is_required': True,
+                        'dropdown_options': 'In Progress,Completed',
+                        'description': 'Current status of plantation activity'
+                    }
+                ]
+                
+                # Create DataFrame and store
+                schema_extensions_df = pd.DataFrame(default_extensions)
+                self.write_dataframe(None, 'schema_extensions.xlsx', schema_extensions_df)
+                
+                # Store in session state for immediate access
+                st.session_state['data_master_schema_extensions'] = schema_extensions_df
+                
+        except Exception as e:
+            st.error(f"Error initializing custom tables: {str(e)}")
             
     def get_or_create_spreadsheet(self, name):
         """Get existing spreadsheet or create a new one"""
@@ -198,72 +288,97 @@ class GoogleSheetsManager:
             ])
         elif 'plantation_records' in file_name:
             return pd.DataFrame(columns=[
-                'Date', 'User', 'Plot_Code', 'Area_Planted', 
+                'Date', 'User', 'Plot_Code', 'Area_Planted',
                 'Farmer_Covered', 'Trees_Planted', 'Pits_Dug', 'Status'
-            ])
-        elif 'daily_data' in file_name:
-            return pd.DataFrame(columns=[
-                'Date', 'User', 'Activity_Type', 'Value', 'Unit', 'Remarks'
-            ])
-        elif 'projects' in file_name:
-            return pd.DataFrame(columns=[
-                'Project_ID', 'Project_Name', 'Description', 'Start_Date', 
-                'Target_Area', 'Assigned_Users', 'Status', 'Manager'
             ])
         elif 'users' in file_name:
             return pd.DataFrame(columns=[
-                'Username', 'Password_Hash', 'Role', 'Full_Name', 
-                'Email', 'Accessible_Projects', 'Last_Login'
+                'username', 'password_hash', 'role', 'accessible_projects',
+                'full_name', 'email', 'created_date', 'last_login'
+            ])
+        elif 'projects' in file_name:
+            return pd.DataFrame(columns=[
+                'project_name', 'description', 'client', 'manager',
+                'start_date', 'target_area', 'target_trees', 'status'
             ])
         elif 'custom_tables' in file_name:
             return pd.DataFrame(columns=[
                 'table_name', 'description', 'fields', 'created_date', 'table_type'
             ])
+        elif 'schema_extensions' in file_name:
+            return pd.DataFrame(columns=[
+                'table_type', 'field_name', 'field_type', 'default_value', 
+                'is_required', 'dropdown_options', 'description'
+            ])
         else:
+            # For custom tables, return empty DataFrame
             return pd.DataFrame()
     
     def get_project_list(self):
-        """Get list of all projects"""
-        # Try to read from Google Sheets
-        projects_df = self.read_dataframe(None, config.FILE_NAMING['projects'])
-        if not projects_df.empty and 'Project_Name' in projects_df.columns:
-            return projects_df['Project_Name'].tolist()
-        else:
-            return config.PROJECTS  # Fallback to default projects
-            
-    def create_project(self, project_data):
-        """Create a new project in Google Sheets"""
+        """Get list of projects"""
         try:
-            # Read existing projects
-            projects_df = self.read_dataframe(None, config.FILE_NAMING['projects'])
+            projects_df = self.read_dataframe(None, 'projects.xlsx')
+            if not projects_df.empty:
+                return projects_df['project_name'].tolist()
+            return ['MakeMyTrip', 'Absolute']  # Default projects
+        except Exception:
+            return ['MakeMyTrip', 'Absolute']  # Default projects
+    
+    def create_project(self, project_data):
+        """Create a new project"""
+        try:
+            projects_df = self.read_dataframe(None, 'projects.xlsx')
             
             # Check if project already exists
-            if not projects_df.empty and 'Project_Name' in projects_df.columns:
-                if project_data['Project_Name'] in projects_df['Project_Name'].values:
-                    st.error(f"Project {project_data['Project_Name']} already exists!")
-                    return False
+            if not projects_df.empty and project_data['project_name'] in projects_df['project_name'].values:
+                return False
             
-            # Add new project
-            new_project = pd.DataFrame([project_data])
-            projects_df = pd.concat([projects_df, new_project], ignore_index=True)
+            # Create new project record
+            new_project = pd.DataFrame([{
+                'project_name': project_data['project_name'],
+                'description': project_data.get('description', ''),
+                'client': project_data.get('client', ''),
+                'manager': project_data.get('manager', ''),
+                'start_date': project_data.get('start_date', datetime.now().strftime('%Y-%m-%d')),
+                'target_area': project_data.get('target_area', 0),
+                'target_trees': project_data.get('target_trees', 0),
+                'status': 'Active'
+            }])
             
-            # Save updated projects list
-            success = self.write_dataframe(None, config.FILE_NAMING['projects'], projects_df)
+            # Append to existing projects
+            if projects_df.empty:
+                updated_projects = new_project
+            else:
+                updated_projects = pd.concat([projects_df, new_project], ignore_index=True)
+            
+            # Save updated projects
+            success = self.write_dataframe(None, 'projects.xlsx', updated_projects)
             
             if success:
                 # Initialize project files
-                self._initialize_project_files(project_data['Project_Name'])
-                return True
-            else:
-                return False
-                
+                self._initialize_project_files(project_data['project_name'])
+            
+            return success
+        
         except Exception as e:
             st.error(f"Error creating project: {str(e)}")
             return False
-            
+    
     def _initialize_project_files(self, project_name):
-        """Initialize empty files for a new project"""
-        # Create empty files with default structure
-        for file_name in [config.FILE_NAMING['kml_tracking'], config.FILE_NAMING['plantation_records']]:
-            df = self._get_default_structure(file_name)
-            self.write_dataframe(project_name, file_name, df) 
+        """Initialize required files for a new project"""
+        try:
+            # Create KML tracking file
+            self.write_dataframe(project_name, 'kml_tracking.xlsx', pd.DataFrame())
+            
+            # Create plantation records file
+            self.write_dataframe(project_name, 'plantation_records.xlsx', pd.DataFrame())
+            
+            # Get custom tables and create files for them
+            custom_tables = self.read_dataframe(None, 'custom_tables.xlsx')
+            if not custom_tables.empty:
+                for _, row in custom_tables.iterrows():
+                    table_name = row['table_name'].lower().replace(' ', '_').replace('-', '_')
+                    self.write_dataframe(project_name, f"{table_name}.xlsx", pd.DataFrame())
+                    
+        except Exception as e:
+            st.error(f"Error initializing project files: {str(e)}") 
