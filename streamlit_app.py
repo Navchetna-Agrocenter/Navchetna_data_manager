@@ -9,6 +9,10 @@ import sys
 import importlib.util
 import traceback
 
+# Disable file watcher to prevent "inotify watch limit reached" error
+os.environ["STREAMLIT_SERVER_WATCH_DIRS"] = "false"
+os.environ["STREAMLIT_SERVER_FILE_WATCHER_TYPE"] = "none"
+
 # Configure Streamlit page
 st.set_page_config(
     page_title="Navchetna Plantation Data Manager",
