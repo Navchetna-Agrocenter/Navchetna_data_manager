@@ -8,6 +8,8 @@ import os
 import sys
 import importlib.util
 import traceback
+import pandas as pd
+from datetime import datetime
 
 # Disable file watcher to prevent "inotify watch limit reached" error
 os.environ["STREAMLIT_SERVER_WATCH_DIRS"] = "false"
@@ -20,6 +22,94 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Initialize custom tables data
+def initialize_custom_tables():
+    """Initialize custom tables data structure if it doesn't exist"""
+    if 'data_master_custom_tables' not in st.session_state:
+        # Create default tables structure
+        default_tables = [
+            {
+                'table_name': 'KML Tracking',
+                'description': 'Track KML files and approval status',
+                'fields': str([
+                    {'name': 'Date', 'type': 'Date', 'required': True, 'default': ''},
+                    {'name': 'User', 'type': 'Text', 'required': True, 'default': ''},
+                    {'name': 'KML_Count_Sent', 'type': 'Number', 'required': True, 'default': '0'},
+                    {'name': 'Total_Area', 'type': 'Number', 'required': True, 'default': '0'},
+                    {'name': 'Area_Approved', 'type': 'Number', 'required': True, 'default': '0'},
+                    {'name': 'Approval_Date', 'type': 'Date', 'required': False, 'default': ''},
+                    {'name': 'Status', 'type': 'Text', 'required': True, 'default': 'Pending'},
+                    {'name': 'Remarks', 'type': 'Text', 'required': False, 'default': ''}
+                ]),
+                'created_date': datetime.now().strftime('%Y-%m-%d'),
+                'table_type': 'system'
+            },
+            {
+                'table_name': 'Plantation Records',
+                'description': 'Track plantation activities and progress',
+                'fields': str([
+                    {'name': 'Date', 'type': 'Date', 'required': True, 'default': ''},
+                    {'name': 'User', 'type': 'Text', 'required': True, 'default': ''},
+                    {'name': 'Plot_Code', 'type': 'Text', 'required': True, 'default': ''},
+                    {'name': 'Area_Planted', 'type': 'Number', 'required': True, 'default': '0'},
+                    {'name': 'Farmer_Covered', 'type': 'Number', 'required': True, 'default': '0'},
+                    {'name': 'Trees_Planted', 'type': 'Number', 'required': True, 'default': '0'},
+                    {'name': 'Pits_Dug', 'type': 'Number', 'required': True, 'default': '0'},
+                    {'name': 'Status', 'type': 'Text', 'required': True, 'default': 'In Progress'}
+                ]),
+                'created_date': datetime.now().strftime('%Y-%m-%d'),
+                'table_type': 'system'
+            }
+        ]
+        
+        # Create DataFrame and store in session state
+        custom_tables_df = pd.DataFrame(default_tables)
+        st.session_state['data_master_custom_tables'] = custom_tables_df
+        
+        # If we have a SharePoint/Google Sheets manager, save the data
+        if 'sp_manager' in st.session_state:
+            try:
+                st.session_state['sp_manager'].write_excel_file(None, 'custom_tables.xlsx', custom_tables_df)
+            except Exception as e:
+                st.error(f"Error saving custom tables: {str(e)}")
+
+# Initialize schema extensions data
+def initialize_schema_extensions():
+    """Initialize schema extensions data structure if it doesn't exist"""
+    if 'data_master_schema_extensions' not in st.session_state:
+        # Create default schema extensions
+        default_extensions = [
+            {
+                'table_type': 'KML Tracking',
+                'field_name': 'Status',
+                'field_type': 'Dropdown',
+                'default_value': 'Pending',
+                'is_required': True,
+                'dropdown_options': 'Pending,Approved,Rejected,Under Review',
+                'description': 'Current status of the KML file'
+            },
+            {
+                'table_type': 'Plantation Records',
+                'field_name': 'Status',
+                'field_type': 'Dropdown',
+                'default_value': 'In Progress',
+                'is_required': True,
+                'dropdown_options': 'In Progress,Completed',
+                'description': 'Current status of plantation activity'
+            }
+        ]
+        
+        # Create DataFrame and store in session state
+        schema_extensions_df = pd.DataFrame(default_extensions)
+        st.session_state['data_master_schema_extensions'] = schema_extensions_df
+        
+        # If we have a SharePoint/Google Sheets manager, save the data
+        if 'sp_manager' in st.session_state:
+            try:
+                st.session_state['sp_manager'].write_excel_file(None, 'schema_extensions.xlsx', schema_extensions_df)
+            except Exception as e:
+                st.error(f"Error saving schema extensions: {str(e)}")
 
 # Debug information
 st.sidebar.markdown("### Debug Information")
@@ -178,6 +268,9 @@ try:
         sp_manager = sharepoint_manager.SharePointManager()
         sp_manager.authenticate()
         
+        # Store SharePoint manager in session state for access by initialization functions
+        st.session_state['sp_manager'] = sp_manager
+        
         auth_manager_instance = auth_manager.AuthManager(sp_manager)
         data_manager_instance = data_manager.DataManager(sp_manager)
         chart_manager = charts.ChartManager()
@@ -185,6 +278,10 @@ try:
         # Initialize data
         auth_manager_instance.initialize_default_users()
         data_manager_instance.initialize_default_data()
+        
+        # Initialize custom tables and schema extensions
+        initialize_custom_tables()
+        initialize_schema_extensions()
         
         # Display storage mode
         if 'deployment_mode' in st.session_state:
