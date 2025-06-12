@@ -209,7 +209,7 @@ try:
                 if login_button:
                     if authenticate_user(username, password):
                         st.success(f"Login successful! Welcome {username}")
-                        st.experimental_rerun()
+                        st.rerun()
                     else:
                         st.error("Invalid username or password")
         
@@ -303,7 +303,7 @@ try:
                 for key in ['logged_in', 'username', 'role']:
                     if key in st.session_state:
                         del st.session_state[key]
-                st.experimental_rerun()
+                st.rerun()
             
             # Page content
             if page == "Dashboard":
