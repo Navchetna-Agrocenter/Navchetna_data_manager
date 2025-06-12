@@ -1,0 +1,27 @@
+[theme]
+primaryColor = "#2E8B57"  # Sea Green
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F8FF"  # Alice Blue
+textColor = "#262730"
+font = "sans serif"
+
+[browser]
+gatherUsageStats = false
+
+[server]
+enableCORS = true
+enableXsrfProtection = true
+headless = true
+
+[runner]
+fastReruns = true
+
+[client]
+toolbarMode = "minimal"
+showErrorDetails = false
+
+[deprecation]
+showPyplotGlobalUse = false
+
+[global]
+developmentMode = false 
