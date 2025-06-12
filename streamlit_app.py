@@ -111,11 +111,49 @@ def initialize_schema_extensions():
             except Exception as e:
                 st.error(f"Error saving schema extensions: {str(e)}")
 
+# Create a function for simple user authentication
+def authenticate_user(username, password):
+    """Simple authentication for demo purposes"""
+    # Default admin credentials
+    if username == "admin" and password == "admin123":
+        st.session_state['logged_in'] = True
+        st.session_state['username'] = username
+        st.session_state['role'] = 'Administrator'
+        return True
+    
+    # Default manager credentials
+    elif username == "manager1" and password == "manager123":
+        st.session_state['logged_in'] = True
+        st.session_state['username'] = username
+        st.session_state['role'] = 'Project Manager'
+        st.session_state['project'] = 'MakeMyTrip'
+        return True
+    
+    # Default manager credentials
+    elif username == "manager2" and password == "manager123":
+        st.session_state['logged_in'] = True
+        st.session_state['username'] = username
+        st.session_state['role'] = 'Project Manager'
+        st.session_state['project'] = 'Absolute'
+        return True
+        
+    # Default viewer credentials
+    elif username == "viewer" and password == "viewer123":
+        st.session_state['logged_in'] = True
+        st.session_state['username'] = username
+        st.session_state['role'] = 'Viewer'
+        return True
+        
+    # Invalid credentials
+    return False
+
 # Debug information
 st.sidebar.markdown("### Debug Information")
 st.sidebar.write(f"Current directory: {os.getcwd()}")
 st.sidebar.write(f"Python version: {sys.version}")
 st.sidebar.write(f"Directory contents: {os.listdir('.')}")
+st.sidebar.write(f"Logged in: {st.session_state.get('logged_in', False)}")
+st.sidebar.write(f"Username: {st.session_state.get('username', 'None')}")
 
 # Function to safely import a module from a file path
 def import_module_from_path(module_name, file_path):
@@ -134,219 +172,208 @@ def import_module_from_path(module_name, file_path):
         st.code(traceback.format_exc())
         return None
 
-# Check for utils directory
-if not os.path.exists('utils'):
-    st.error("The utils directory is missing! Contents of the current directory:")
-    st.write(os.listdir('.'))
-    
-    # Try to create the basic utility modules from scratch
-    st.warning("Attempting to create essential modules from scratch...")
-    
-    # Create directory structure
+# Import utility modules if they exist
+utils_exist = os.path.exists('utils')
+if not utils_exist:
+    st.warning("Utils directory not found. Creating simplified environment.")
+    # Create directory structure if needed
     os.makedirs('utils', exist_ok=True)
     os.makedirs('components', exist_ok=True)
-    
-    # Create minimal utility modules
-    with open('utils/__init__.py', 'w') as f:
-        f.write('# Utils package\n')
-        
-    with open('utils/sharepoint_manager.py', 'w') as f:
-        f.write('''
-"""Minimal SharePoint Manager"""
-import streamlit as st
-import pandas as pd
-import os
 
-class SharePointManager:
-    def __init__(self):
-        self.is_online = False
-        st.session_state['deployment_mode'] = 'github'
-        
-    def authenticate(self):
-        return True
-        
-    def read_excel_file(self, project_name, file_name):
-        # Return empty DataFrame with default structure
-        return pd.DataFrame()
-        
-    def write_excel_file(self, project_name, file_name, data, sheet_name='Sheet1'):
-        # Store in session state
-        key = f"data_{project_name}_{file_name.replace('.xlsx', '')}" if project_name else f"data_master_{file_name.replace('.xlsx', '')}"
-        st.session_state[key] = data
-        return True
-        
-    def get_project_list(self):
-        return ['MakeMyTrip', 'Absolute']
-        
-    def hash_password(self, password):
-        import hashlib
-        return hashlib.sha256(password.encode()).hexdigest()
-''')
-        
-    with open('utils/auth_manager.py', 'w') as f:
-        f.write('''
-"""Minimal Auth Manager"""
-import streamlit as st
-import pandas as pd
-
-class AuthManager:
-    def __init__(self, sharepoint_manager):
-        self.sp_manager = sharepoint_manager
-        
-    def initialize_default_users(self):
-        pass
-        
-    def authenticate_user(self, username, password):
-        # Always allow login for emergency access
-        st.session_state['logged_in'] = True
-        st.session_state['username'] = username
-        st.session_state['role'] = 'Administrator'
-        return True
-''')
-        
-    with open('utils/data_manager.py', 'w') as f:
-        f.write('''
-"""Minimal Data Manager"""
-import streamlit as st
-import pandas as pd
-
-class DataManager:
-    def __init__(self, sharepoint_manager):
-        self.sp_manager = sharepoint_manager
-        
-    def initialize_default_data(self):
-        pass
-        
-    def get_all_project_names(self):
-        return ['MakeMyTrip', 'Absolute']
-        
-    def migrate_plantation_data(self, project_name):
-        pass
-''')
-        
-    with open('components/__init__.py', 'w') as f:
-        f.write('# Components package\n')
-        
-    with open('components/charts.py', 'w') as f:
-        f.write('''
-"""Minimal Chart Manager"""
-import streamlit as st
-import pandas as pd
-
-class ChartManager:
-    def __init__(self):
-        pass
-        
-    def create_kml_status_chart(self, data):
-        st.write("Chart placeholder - KML Status")
-        return None
-        
-    def create_plantation_progress_chart(self, data):
-        st.write("Chart placeholder - Plantation Progress")
-        return None
-''')
-
-# Try to import the modules
+# Main application logic
 try:
-    # First, try to import config
-    if os.path.exists('config.py'):
-        config = import_module_from_path('config', 'config.py')
-    else:
-        st.error("config.py is missing!")
-        config = None
+    # Display storage mode based on environment
+    # Will be set by the SharePoint or Google Sheets manager
+    if 'deployment_mode' in st.session_state:
+        mode = st.session_state['deployment_mode']
+        if mode == 'gsheets':
+            st.sidebar.success("📊 Connected to Google Sheets for persistent storage")
+        elif mode == 'github':
+            st.sidebar.info("⚠️ Running in GitHub mode. Data will not persist between sessions.")
+        else:
+            st.sidebar.info("💾 Running in local storage mode")
     
-    # Import utility modules
-    sharepoint_manager = import_module_from_path('sharepoint_manager', 'utils/sharepoint_manager.py')
-    auth_manager = import_module_from_path('auth_manager', 'utils/auth_manager.py')
-    data_manager = import_module_from_path('data_manager', 'utils/data_manager.py')
-    charts = import_module_from_path('charts', 'components/charts.py')
-    
-    if None in [sharepoint_manager, auth_manager, data_manager, charts]:
-        st.error("Failed to import one or more required modules!")
-    else:
-        # Initialize managers
-        sp_manager = sharepoint_manager.SharePointManager()
-        sp_manager.authenticate()
+    # Login screen
+    if 'logged_in' not in st.session_state or not st.session_state['logged_in']:
+        st.title("🌱 Plantation Data Management System")
+        st.subheader("Login")
         
-        # Store SharePoint manager in session state for access by initialization functions
-        st.session_state['sp_manager'] = sp_manager
+        col1, col2 = st.columns([1, 1])
         
-        auth_manager_instance = auth_manager.AuthManager(sp_manager)
-        data_manager_instance = data_manager.DataManager(sp_manager)
-        chart_manager = charts.ChartManager()
-        
-        # Initialize data
-        auth_manager_instance.initialize_default_users()
-        data_manager_instance.initialize_default_data()
-        
-        # Initialize custom tables and schema extensions
-        initialize_custom_tables()
-        initialize_schema_extensions()
-        
-        # Display storage mode
-        if 'deployment_mode' in st.session_state:
-            mode = st.session_state['deployment_mode']
-            if mode == 'gsheets':
-                st.sidebar.success("📊 Connected to Google Sheets for persistent storage")
-            elif mode == 'github':
-                st.sidebar.info("⚠️ Running in GitHub mode. Data will not persist between sessions.")
-            else:
-                st.sidebar.info("💾 Running in local storage mode")
-        
-        # Display login form if not logged in
-        if 'logged_in' not in st.session_state or not st.session_state['logged_in']:
-            st.title("🌱 Plantation Data Management System")
-            st.subheader("Login")
-            
+        with col1:
             with st.form("login_form"):
                 username = st.text_input("Username")
                 password = st.text_input("Password", type="password")
-                submit = st.form_submit_button("Login")
+                login_button = st.form_submit_button("Login")
                 
-                if submit:
-                    if auth_manager_instance.authenticate_user(username, password):
-                        st.success("Login successful!")
-                        st.rerun()
+                if login_button:
+                    if authenticate_user(username, password):
+                        st.success(f"Login successful! Welcome {username}")
+                        st.experimental_rerun()
                     else:
                         st.error("Invalid username or password")
-                        
-            # Show demo credentials
-            with st.expander("Demo Credentials"):
-                st.markdown("""
-                - **Admin:** username: `admin`, password: `admin123`
-                - **Manager 1:** username: `manager1`, password: `manager123`
-                - **Manager 2:** username: `manager2`, password: `manager123`
-                - **Viewer:** username: `viewer`, password: `viewer123`
-                """)
-        else:
-            # Display main app
+        
+        with col2:
+            st.info("Demo Credentials")
+            st.markdown("""
+            - **Admin:** username: `admin`, password: `admin123`
+            - **Manager 1:** username: `manager1`, password: `manager123`
+            - **Manager 2:** username: `manager2`, password: `manager123`
+            - **Viewer:** username: `viewer`, password: `viewer123`
+            """)
+    
+    # Main application
+    else:
+        # Import utility modules after login is successful
+        try:
+            # Import config first
+            if os.path.exists('config.py'):
+                config = import_module_from_path('config', 'config.py')
+            else:
+                st.warning("config.py is missing, using default configuration.")
+                config = None
+            
+            # Import core modules
+            sharepoint_manager = import_module_from_path('sharepoint_manager', 'utils/sharepoint_manager.py')
+            auth_manager = import_module_from_path('auth_manager', 'utils/auth_manager.py')
+            data_manager = import_module_from_path('data_manager', 'utils/data_manager.py')
+            charts = import_module_from_path('charts', 'components/charts.py')
+            
+            # Check if imports were successful
+            if None in [sharepoint_manager, auth_manager, data_manager, charts]:
+                st.warning("Some modules couldn't be loaded. Using simplified interface.")
+                
+                # Create a minimal SharePoint manager
+                class SimpleSharePointManager:
+                    def __init__(self):
+                        self.is_online = False
+                        st.session_state['deployment_mode'] = 'github'
+                    
+                    def authenticate(self):
+                        return True
+                    
+                    def read_excel_file(self, project_name, file_name):
+                        key = f"data_{project_name}_{file_name.replace('.xlsx', '')}" if project_name else f"data_master_{file_name.replace('.xlsx', '')}"
+                        if key in st.session_state:
+                            return st.session_state[key]
+                        return pd.DataFrame()
+                    
+                    def write_excel_file(self, project_name, file_name, data, sheet_name='Sheet1'):
+                        key = f"data_{project_name}_{file_name.replace('.xlsx', '')}" if project_name else f"data_master_{file_name.replace('.xlsx', '')}"
+                        st.session_state[key] = data
+                        return True
+                    
+                    def get_project_list(self):
+                        return ['MakeMyTrip', 'Absolute']
+                
+                # Use simplified managers
+                sp_manager = SimpleSharePointManager()
+                st.session_state['sp_manager'] = sp_manager
+            else:
+                # Use imported managers
+                sp_manager = sharepoint_manager.SharePointManager()
+                sp_manager.authenticate()
+                st.session_state['sp_manager'] = sp_manager
+                
+                auth_manager_instance = auth_manager.AuthManager(sp_manager)
+                data_manager_instance = data_manager.DataManager(sp_manager)
+                chart_manager = charts.ChartManager()
+                
+                # Initialize data
+                auth_manager_instance.initialize_default_users()
+                data_manager_instance.initialize_default_data()
+            
+            # Initialize tables data regardless of which managers are used
+            initialize_custom_tables()
+            initialize_schema_extensions()
+            
+            # Display main application
             st.title("🌱 Plantation Data Management System")
             st.subheader(f"Welcome, {st.session_state.get('username', 'User')}")
             
-            # Simple dashboard
-            st.markdown("### Dashboard")
-            col1, col2, col3 = st.columns(3)
+            # Navigation sidebar
+            st.sidebar.title("Navigation")
+            page = st.sidebar.radio(
+                "Go to",
+                ["Dashboard", "Projects", "Add Data", "Schema Management", "Reports", "User Management"]
+            )
             
-            with col1:
-                st.metric("Projects", len(data_manager_instance.get_all_project_names()))
-                
-            with col2:
-                st.metric("KML Files", "N/A")
-                
-            with col3:
-                st.metric("Area Planted", "N/A")
-                
-            # Projects section
-            st.markdown("### Projects")
-            for project in data_manager_instance.get_all_project_names():
-                st.write(f"- {project}")
-                
             # Logout button
-            if st.button("Logout"):
+            if st.sidebar.button("Logout"):
                 for key in ['logged_in', 'username', 'role']:
                     if key in st.session_state:
                         del st.session_state[key]
-                st.rerun()
+                st.experimental_rerun()
+            
+            # Page content
+            if page == "Dashboard":
+                st.header("Dashboard")
+                st.write("Main dashboard content will go here.")
+                
+                # Simple KPIs
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Projects", "2")
+                with col2:
+                    st.metric("KML Files", "35")
+                with col3:
+                    st.metric("Area Planted", "750 ha")
+                
+            elif page == "Projects":
+                st.header("Projects")
+                st.write("Projects overview will go here.")
+                
+                # Show project list
+                projects = sp_manager.get_project_list()
+                for i, project in enumerate(projects):
+                    st.subheader(f"{i+1}. {project}")
+                    st.write(f"Description for {project} project")
+                
+            elif page == "Add Data":
+                st.header("Add Data")
+                st.write("Data entry forms will go here.")
+                
+            elif page == "Schema Management":
+                st.header("Schema Management")
+                
+                # Get custom tables
+                custom_tables_df = st.session_state.get('data_master_custom_tables', pd.DataFrame())
+                
+                # Schema management tabs
+                schema_tab = st.tabs(["View Schema", "Add Field", "Edit Field", "Delete Field", "Manage Tables"])
+                
+                with schema_tab[0]:
+                    st.subheader("Current Schema")
+                    if not custom_tables_df.empty:
+                        st.dataframe(custom_tables_df)
+                    else:
+                        st.warning("No tables defined yet.")
+                
+                with schema_tab[4]:
+                    st.subheader("Manage Tables")
+                    if not custom_tables_df.empty:
+                        st.dataframe(custom_tables_df)
+                        
+                        # Add new table form
+                        st.subheader("Add New Table")
+                        with st.form("add_table_form"):
+                            table_name = st.text_input("Table Name")
+                            description = st.text_area("Description")
+                            st.form_submit_button("Add Table")
+                    else:
+                        st.warning("No tables defined yet.")
+                
+            elif page == "Reports":
+                st.header("Reports")
+                st.write("Reporting tools will go here.")
+                
+            elif page == "User Management":
+                st.header("User Management")
+                st.write("User management tools will go here.")
+                
+        except Exception as e:
+            st.error(f"Error loading application components: {str(e)}")
+            st.code(traceback.format_exc())
                 
 except Exception as e:
     st.error(f"An error occurred: {str(e)}")
