@@ -10,15 +10,46 @@ import os
 import time
 import math
 
-# Add the current directory to Python path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# More robust path handling for imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, current_dir)  # Add the current directory to Python path
 
-import config
-from utils.sharepoint_manager import SharePointManager
-from utils.auth_manager import AuthManager
-from utils.data_manager import DataManager
-from components.charts import ChartManager
-from sample_data import initialize_sample_data
+# Try different import approaches
+try:
+    import config
+    from utils.sharepoint_manager import SharePointManager
+    from utils.auth_manager import AuthManager
+    from utils.data_manager import DataManager
+    from components.charts import ChartManager
+    from sample_data import initialize_sample_data
+    print("Imports successful using standard approach")
+except ImportError as e:
+    print(f"Import error with standard approach: {e}")
+    # Try alternative import approach
+    try:
+        import config
+        # Use absolute imports as fallback
+        from navchetna_data_manager.utils.sharepoint_manager import SharePointManager
+        from navchetna_data_manager.utils.auth_manager import AuthManager
+        from navchetna_data_manager.utils.data_manager import DataManager
+        from navchetna_data_manager.components.charts import ChartManager
+        from navchetna_data_manager.sample_data import initialize_sample_data
+        print("Imports successful using absolute imports")
+    except ImportError as e2:
+        print(f"Import error with absolute imports: {e2}")
+        # Create a direct import by manipulating sys.path
+        utils_path = os.path.join(current_dir, 'utils')
+        components_path = os.path.join(current_dir, 'components')
+        sys.path.insert(0, utils_path)
+        sys.path.insert(0, components_path)
+        
+        import config
+        from sharepoint_manager import SharePointManager
+        from auth_manager import AuthManager
+        from data_manager import DataManager
+        from charts import ChartManager
+        from sample_data import initialize_sample_data
+        print("Imports successful using path manipulation")
 
 # Configure Streamlit page
 st.set_page_config(
@@ -27,6 +58,12 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Display directories for debugging
+st.sidebar.write("### Debug Info")
+st.sidebar.write(f"Current directory: {os.getcwd()}")
+st.sidebar.write(f"Python path: {sys.path}")
+st.sidebar.write(f"Directory contents: {os.listdir('.')}")
 
 # Initialize managers
 @st.cache_resource
