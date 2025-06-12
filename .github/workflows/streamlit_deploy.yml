@@ -21,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-streamlit.txt
+          pip install -r requirements.txt
 
       - name: Set GitHub Pages environment variable
         run: echo "IS_GITHUB_PAGES=true" >> $GITHUB_ENV
@@ -29,6 +29,7 @@ jobs:
       - name: Verify application structure
         run: |
           ls -la
+          echo "Using app.py as the main entry point"
           python -c "import streamlit; print(f'Streamlit version: {streamlit.__version__}')"
           
       # Note: Actual deployment to Streamlit Cloud happens automatically when 

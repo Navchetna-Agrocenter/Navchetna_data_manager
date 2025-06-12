@@ -12,6 +12,7 @@ gatherUsageStats = false
 enableCORS = true
 enableXsrfProtection = true
 headless = true
+entrypoint = "app.py"
 
 [runner]
 fastReruns = true
@@ -24,4 +25,7 @@ showErrorDetails = false
 showPyplotGlobalUse = false
 
 [global]
-developmentMode = false 
+developmentMode = false
+
+[server.fileWatcherType]
+watcherType = "none" 
