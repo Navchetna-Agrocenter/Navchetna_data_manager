@@ -16,38 +16,22 @@ class TableManager:
     def __init__(self, db_manager):
         """Initialize with database manager"""
         self.db_manager = db_manager
-        
-        # Initialize tables cache
-        if 'tables_cache' not in st.session_state:
-            st.session_state['tables_cache'] = {}
     
     def get_all_tables(self):
         """Get all tables definitions"""
         try:
-            # Try to get from cache first, but with timeout
-            cache_key = 'all_tables'
-            cache_timeout_key = 'tables_cache_time'
-            current_time = time.time()
-            
-            # Check if cache is valid (less than 30 seconds old)
-            if (cache_key in st.session_state['tables_cache'] and 
-                cache_timeout_key in st.session_state['tables_cache'] and
-                current_time - st.session_state['tables_cache'][cache_timeout_key] < 30):
-                return st.session_state['tables_cache'][cache_key]
-            
-            # Get tables from database
+            # Always fetch fresh data for mobile compatibility
+            # Mobile browsers can have different session state behavior
             tables_df = self.db_manager.read_dataframe(None, 'tables')
             
             if tables_df.empty:
                 # Create default tables structure if none exists
                 tables_df = self._create_default_tables()
                 
-            # Store in cache with timestamp
-            st.session_state['tables_cache'][cache_key] = tables_df
-            st.session_state['tables_cache'][cache_timeout_key] = current_time
             return tables_df
             
         except Exception as e:
+            # Log error silently, don't show to user
             print(f"Error getting tables: {str(e)}")
             return pd.DataFrame(columns=['table_name', 'description', 'fields', 'table_type', 'associated_projects'])
     
@@ -356,9 +340,6 @@ class TableManager:
             success = self.db_manager.write_dataframe(None, 'tables', tables_df)
             
             if success:
-                # Update cache
-                st.session_state['tables_cache']['all_tables'] = tables_df
-                
                 # Add field to all project data
                 projects_df = self.db_manager.read_dataframe(None, 'projects')
                 if not projects_df.empty:
@@ -427,9 +408,6 @@ class TableManager:
             success = self.db_manager.write_dataframe(None, 'tables', tables_df)
             
             if success:
-                # Update cache
-                st.session_state['tables_cache']['all_tables'] = tables_df
-                
                 # Update field in all project data if field name changed
                 if old_field_name != new_field_config['name']:
                     projects_df = self.db_manager.read_dataframe(None, 'projects')
@@ -487,9 +465,6 @@ class TableManager:
             success = self.db_manager.write_dataframe(None, 'tables', tables_df)
             
             if success:
-                # Update cache
-                st.session_state['tables_cache']['all_tables'] = tables_df
-                
                 # Remove field from all project data
                 projects_df = self.db_manager.read_dataframe(None, 'projects')
                 if not projects_df.empty:
@@ -512,9 +487,8 @@ class TableManager:
             return False
 
     def clear_cache(self):
-        """Clear tables cache"""
-        if 'tables_cache' in st.session_state:
-            st.session_state['tables_cache'] = {}
+        """Clear tables cache (deprecated - no longer using cache)"""
+        pass
     
     def _create_default_tables(self):
         """Create default tables structure"""
@@ -533,7 +507,8 @@ class TableManager:
                     {'name': 'Remarks', 'type': 'Text', 'required': False, 'default': ''}
                 ]),
                 'created_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'table_type': 'system'
+                'table_type': 'system',
+                'associated_projects': '["All"]'
             },
             {
                 'table_name': 'Plantation Records',
@@ -549,7 +524,8 @@ class TableManager:
                     {'name': 'Status', 'type': 'Text', 'required': True, 'default': 'In Progress'}
                 ]),
                 'created_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'table_type': 'system'
+                'table_type': 'system',
+                'associated_projects': '["All"]'
             }
         ]
         
