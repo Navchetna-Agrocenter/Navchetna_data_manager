@@ -8,6 +8,7 @@ from datetime import datetime
 import json
 import streamlit as st
 import ast
+import time
 
 class TableManager:
     """Dynamic Table Manager for handling table operations"""
@@ -23,9 +24,16 @@ class TableManager:
     def get_all_tables(self):
         """Get all tables definitions"""
         try:
-            # Try to get from cache first
-            if 'all_tables' in st.session_state['tables_cache']:
-                return st.session_state['tables_cache']['all_tables']
+            # Try to get from cache first, but with timeout
+            cache_key = 'all_tables'
+            cache_timeout_key = 'tables_cache_time'
+            current_time = time.time()
+            
+            # Check if cache is valid (less than 30 seconds old)
+            if (cache_key in st.session_state['tables_cache'] and 
+                cache_timeout_key in st.session_state['tables_cache'] and
+                current_time - st.session_state['tables_cache'][cache_timeout_key] < 30):
+                return st.session_state['tables_cache'][cache_key]
             
             # Get tables from database
             tables_df = self.db_manager.read_dataframe(None, 'tables')
@@ -34,13 +42,14 @@ class TableManager:
                 # Create default tables structure if none exists
                 tables_df = self._create_default_tables()
                 
-            # Store in cache
-            st.session_state['tables_cache']['all_tables'] = tables_df
+            # Store in cache with timestamp
+            st.session_state['tables_cache'][cache_key] = tables_df
+            st.session_state['tables_cache'][cache_timeout_key] = current_time
             return tables_df
             
         except Exception as e:
             print(f"Error getting tables: {str(e)}")
-            return pd.DataFrame(columns=['table_name', 'description', 'fields', 'table_type'])
+            return pd.DataFrame(columns=['table_name', 'description', 'fields', 'table_type', 'associated_projects'])
     
     def get_table_data(self, project_name, table_name):
         """Get data from any table"""
