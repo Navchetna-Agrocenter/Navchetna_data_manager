@@ -10,6 +10,13 @@ SHAREPOINT_CONFIG = {
     'scope': ['https://graph.microsoft.com/.default']
 }
 
+# MongoDB Configuration
+MONGODB_CONFIG = {
+    'connection_string': '',  # Set via environment variable MONGODB_URI
+    'database_name': 'navchetna_data',
+    'use_local_fallback': True,  # Fall back to local storage if MongoDB is unavailable
+}
+
 # Local Storage Configuration (for development/offline mode)
 LOCAL_STORAGE = {
     'data_folder': 'local_data',
@@ -93,4 +100,16 @@ FILE_NAMING = {
     'users': 'users.xlsx',
     'projects': 'projects.xlsx',
     'configuration': 'configuration.xlsx'
+}
+
+# Collection Names for MongoDB
+COLLECTION_NAMES = {
+    'daily_data': 'daily_data',
+    'kml_tracking': 'kml_tracking',
+    'plantation_records': 'plantation_records',
+    'users': 'users',
+    'projects': 'projects',
+    'configuration': 'configuration',
+    'tables': 'tables',  # Stores table definitions
+    'schema_extensions': 'schema_extensions'  # Stores schema extensions
 } 

@@ -581,14 +581,163 @@ st.markdown("""
 
 def main():
     """Main application function"""
+    # Add direct create table function for admin
+    if st.session_state.get('role') == 'admin' and st.sidebar.button("⚠️ Force Create Custom Tables"):
+        # Force create tables structure
+        try:
+            # Ensure local_data directory exists
+            os.makedirs("local_data", exist_ok=True)
+            
+            # Create default tables structure
+            default_tables = [
+                {
+                    'table_name': 'KML Tracking',
+                    'description': 'Track KML files and approval status',
+                    'fields': str([
+                        {'name': 'Date', 'type': 'Date', 'required': True, 'default': ''},
+                        {'name': 'User', 'type': 'Text', 'required': True, 'default': ''},
+                        {'name': 'KML_Count_Sent', 'type': 'Number', 'required': True, 'default': '0'},
+                        {'name': 'Total_Area', 'type': 'Number', 'required': True, 'default': '0'},
+                        {'name': 'Area_Approved', 'type': 'Number', 'required': True, 'default': '0'},
+                        {'name': 'Approval_Date', 'type': 'Date', 'required': False, 'default': ''},
+                        {'name': 'Status', 'type': 'Text', 'required': True, 'default': 'Pending'},
+                        {'name': 'Remarks', 'type': 'Text', 'required': False, 'default': ''}
+                    ]),
+                    'created_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'table_type': 'system'
+                },
+                {
+                    'table_name': 'Plantation Records',
+                    'description': 'Track plantation activities and progress',
+                    'fields': str([
+                        {'name': 'Date', 'type': 'Date', 'required': True, 'default': ''},
+                        {'name': 'User', 'type': 'Text', 'required': True, 'default': ''},
+                        {'name': 'Plot_Code', 'type': 'Text', 'required': True, 'default': ''},
+                        {'name': 'Area_Planted', 'type': 'Number', 'required': True, 'default': '0'},
+                        {'name': 'Farmer_Covered', 'type': 'Number', 'required': True, 'default': '0'},
+                        {'name': 'Trees_Planted', 'type': 'Number', 'required': True, 'default': '0'},
+                        {'name': 'Pits_Dug', 'type': 'Number', 'required': True, 'default': '0'},
+                        {'name': 'Status', 'type': 'Text', 'required': True, 'default': 'In Progress'}
+                    ]),
+                    'created_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'table_type': 'system'
+                },
+                {
+                    'table_name': 'Farmer Database',
+                    'description': 'Farmer information database',
+                    'fields': str([
+                        {'name': 'Farmer_ID', 'type': 'Text', 'required': True, 'default': ''},
+                        {'name': 'Name', 'type': 'Text', 'required': True, 'default': ''},
+                        {'name': 'Village', 'type': 'Text', 'required': True, 'default': ''},
+                        {'name': 'Contact', 'type': 'Text', 'required': False, 'default': ''},
+                        {'name': 'Land_Area', 'type': 'Number', 'required': True, 'default': '0'},
+                        {'name': 'Plantation_Area', 'type': 'Number', 'required': True, 'default': '0'},
+                        {'name': 'Trees_Planted', 'type': 'Number', 'required': True, 'default': '0'},
+                        {'name': 'Registration_Date', 'type': 'Date', 'required': True, 'default': ''}
+                    ]),
+                    'created_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'table_type': 'user-created'
+                },
+                {
+                    'table_name': 'Training Events',
+                    'description': 'Farmer training sessions',
+                    'fields': str([
+                        {'name': 'Event_Date', 'type': 'Date', 'required': True, 'default': ''},
+                        {'name': 'Location', 'type': 'Text', 'required': True, 'default': ''},
+                        {'name': 'Topic', 'type': 'Text', 'required': True, 'default': ''},
+                        {'name': 'Trainer', 'type': 'Text', 'required': True, 'default': ''},
+                        {'name': 'Participants_Count', 'type': 'Number', 'required': True, 'default': '0'},
+                        {'name': 'Feedback_Score', 'type': 'Number', 'required': False, 'default': '0'},
+                        {'name': 'Notes', 'type': 'Text', 'required': False, 'default': ''}
+                    ]),
+                    'created_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'table_type': 'user-created'
+                }
+            ]
+
+            # Create DataFrame
+            custom_tables_df = pd.DataFrame(default_tables)
+            
+            # Store in session state
+            st.session_state['data_master_custom_tables'] = custom_tables_df
+            
+            # Save to local file
+            custom_tables_file = "local_data/custom_tables.csv"
+            custom_tables_df.to_csv(custom_tables_file, index=False)
+            
+            # If using Google Sheets, save there too
+            if sp_manager and hasattr(sp_manager, 'write_dataframe'):
+                sp_manager.write_dataframe(None, 'custom_tables.xlsx', custom_tables_df)
+            
+            # Create default schema extensions
+            default_extensions = [
+                {
+                    'table_type': 'KML Tracking',
+                    'field_name': 'Status',
+                    'field_type': 'Dropdown',
+                    'default_value': 'Pending',
+                    'is_required': True,
+                    'dropdown_options': 'Pending,Approved,Rejected,Under Review',
+                    'description': 'Current status of the KML file'
+                },
+                {
+                    'table_type': 'Plantation Records',
+                    'field_name': 'Status',
+                    'field_type': 'Dropdown',
+                    'default_value': 'In Progress',
+                    'is_required': True,
+                    'dropdown_options': 'In Progress,Completed',
+                    'description': 'Current status of plantation activity'
+                }
+            ]
+            
+            # Create DataFrame
+            schema_extensions_df = pd.DataFrame(default_extensions)
+            
+            # Store in session state
+            st.session_state['data_master_schema_extensions'] = schema_extensions_df
+            
+            # Save to local file
+            schema_file = "local_data/schema_extensions.csv"
+            schema_extensions_df.to_csv(schema_file, index=False)
+            
+            # If using Google Sheets, save there too
+            if sp_manager and hasattr(sp_manager, 'write_dataframe'):
+                sp_manager.write_dataframe(None, 'schema_extensions.xlsx', schema_extensions_df)
+            
+            # Create table files for all projects
+            projects_dir = "local_data/projects"
+            if os.path.exists(projects_dir):
+                for project_name in os.listdir(projects_dir):
+                    project_path = os.path.join(projects_dir, project_name)
+                    if os.path.isdir(project_path):
+                        for table in default_tables:
+                            table_name = table['table_name'].lower().replace(' ', '_').replace('-', '_')
+                            fields = eval(table['fields'])
+                            columns = [field['name'] for field in fields if field.get('name')]
+                            
+                            # Create empty DataFrame with defined columns
+                            empty_df = pd.DataFrame(columns=columns)
+                            
+                            # Save to local file
+                            file_path = os.path.join(project_path, f"{table_name}.xlsx")
+                            empty_df.to_excel(file_path, index=False)
+                            
+                            # If using Google Sheets, save there too
+                            if sp_manager and hasattr(sp_manager, 'write_dataframe'):
+                                sp_manager.write_dataframe(project_name, f"{table_name}.xlsx", empty_df)
+            
+            st.sidebar.success("✅ Custom tables created successfully!")
+            time.sleep(2)
+            st.rerun()
+        except Exception as e:
+            st.sidebar.error(f"Error creating custom tables: {str(e)}")
     
-    # Check authentication
-    if not auth_manager.is_authenticated():
+    # Continue with existing code
+    if 'logged_in' not in st.session_state or not st.session_state['logged_in']:
         show_login_page()
-        return
-    
-    # Show main application
-    show_main_app()
+    else:
+        show_main_app()
 
 def show_login_page():
     """Display login page"""
