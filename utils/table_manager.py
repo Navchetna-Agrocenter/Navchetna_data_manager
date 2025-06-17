@@ -486,6 +486,52 @@ class TableManager:
             print(f"Error deleting field from table: {str(e)}")
             return False
 
+    def delete_table(self, table_name):
+        """Delete an entire table and all its data"""
+        try:
+            tables_df = self.get_all_tables()
+            if tables_df.empty:
+                return False
+            
+            # Check if table exists
+            table_idx = tables_df[tables_df['table_name'] == table_name].index
+            if len(table_idx) == 0:
+                return False
+            
+            # Don't allow deletion of system tables
+            table_type = tables_df.iloc[table_idx[0]].get('table_type', 'custom')
+            if table_type == 'system':
+                print(f"Cannot delete system table: {table_name}")
+                return False
+            
+            # Remove table from tables definition
+            updated_tables_df = tables_df.drop(table_idx).reset_index(drop=True)
+            
+            # Save updated tables definition
+            success = self.db_manager.write_dataframe(None, 'tables', updated_tables_df)
+            
+            if success:
+                # Delete table data from all projects
+                projects_df = self.db_manager.read_dataframe(None, 'projects')
+                if not projects_df.empty:
+                    collection_name = table_name.lower().replace(' ', '_')
+                    
+                    for _, project in projects_df.iterrows():
+                        project_name = project['Project_Name']
+                        # Delete the entire collection/table for this project
+                        try:
+                            # Clear the table data by writing an empty DataFrame
+                            empty_df = pd.DataFrame()
+                            self.db_manager.write_dataframe(project_name, collection_name, empty_df)
+                        except Exception as e:
+                            print(f"Warning: Could not clear table data for project {project_name}: {str(e)}")
+            
+            return success
+            
+        except Exception as e:
+            print(f"Error deleting table: {str(e)}")
+            return False
+
     def clear_cache(self):
         """Clear tables cache (deprecated - no longer using cache)"""
         pass

@@ -2446,7 +2446,7 @@ def show_schema_management():
     """, unsafe_allow_html=True)
     
     # Tab layout for different schema operations
-    tab1, tab2, tab3, tab4 = st.tabs(["📋 View Tables", "➕ Create Table", "🔧 Manage Fields", "📊 Table Data"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 View Tables", "➕ Create Table", "🔧 Manage Fields", "📊 Table Data", "🗑️ Delete Table"])
     
     with tab1:
         st.subheader("📋 All Tables")
@@ -2795,6 +2795,90 @@ def show_schema_management():
                 st.info("No tables found for this project.")
         else:
             st.warning("No projects accessible to your account.")
+    
+    with tab5:
+        st.subheader("🗑️ Delete Table")
+        
+        # Get all tables except system tables
+        tables_df = table_manager.get_all_tables()
+        
+        if not tables_df.empty:
+            # Filter out system tables
+            custom_tables = tables_df[tables_df.get('table_type', 'custom') != 'system']
+            
+            if not custom_tables.empty:
+                st.warning("⚠️ **Warning**: Deleting a table will permanently remove it and all its data from all projects!")
+                st.error("**This action cannot be undone!**")
+                
+                # Show current custom tables
+                st.markdown("**Current Custom Tables:**")
+                for _, table_row in custom_tables.iterrows():
+                    table_name = table_row['table_name']
+                    description = table_row.get('description', 'No description')
+                    table_type = table_row.get('table_type', 'custom')
+                    
+                    # Get project associations
+                    associated_projects_str = table_row.get('associated_projects', '["All"]')
+                    try:
+                        associated_projects = ast.literal_eval(associated_projects_str)
+                        project_display = "All Projects" if "All" in associated_projects else ", ".join(associated_projects)
+                    except:
+                        project_display = "All Projects"
+                    
+                    with st.expander(f"📊 {table_name} ({table_type})"):
+                        st.write(f"**Description:** {description}")
+                        st.write(f"**Available to:** {project_display}")
+                        
+                        # Show schema
+                        schema = table_manager.get_table_schema(table_name)
+                        if schema:
+                            st.write(f"**Fields:** {len(schema)} fields defined")
+                            schema_df = pd.DataFrame([
+                                {
+                                    'Field Name': field.get('name', ''),
+                                    'Type': field.get('type', 'text'),
+                                    'Required': field.get('required', False)
+                                }
+                                for field in schema[:5]  # Show first 5 fields
+                            ])
+                            st.dataframe(schema_df, use_container_width=True)
+                            if len(schema) > 5:
+                                st.info(f"... and {len(schema) - 5} more fields")
+                        else:
+                            st.info("No fields defined for this table")
+                
+                st.markdown("---")
+                
+                # Delete table form
+                with st.form("delete_table_form"):
+                    st.subheader("Delete Table")
+                    
+                    table_to_delete = st.selectbox(
+                        "Select Table to Delete:", 
+                        custom_tables['table_name'].tolist(),
+                        help="Only custom tables can be deleted. System tables (KML Tracking, Plantation Records) are protected."
+                    )
+                    
+                    if table_to_delete:
+                        st.warning(f"⚠️ You are about to delete the table: **{table_to_delete}**")
+                        st.error("This will permanently remove:")
+                        st.write("• The table structure and all its fields")
+                        st.write("• All data in this table from all projects")
+                        st.write("• Any references to this table")
+                        
+                        confirm_delete = st.checkbox("I understand this will permanently delete the table and all its data")
+                        submitted = st.form_submit_button("🗑️ Delete Table", type="primary")
+                        
+                        if submitted and confirm_delete and table_to_delete:
+                            if table_manager.delete_table(table_to_delete):
+                                st.success(f"✅ Table '{table_to_delete}' deleted successfully!")
+                                st.rerun()
+                            else:
+                                st.error("❌ Failed to delete table. It may be a system table or there was an error.")
+            else:
+                st.info("No custom tables available to delete. Only custom tables can be deleted.")
+        else:
+            st.info("No tables found.")
 
 def show_my_projects():
     """Display user's accessible projects"""
