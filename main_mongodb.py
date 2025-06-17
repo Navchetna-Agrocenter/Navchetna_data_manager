@@ -2457,9 +2457,19 @@ def show_schema_management():
             for _, table_row in tables_df.iterrows():
                 table_name = table_row['table_name']
                 description = table_row.get('description', 'No description')
+                table_type = table_row.get('table_type', 'unknown')
                 
-                with st.expander(f"📊 {table_name}"):
+                # Get project associations
+                associated_projects_str = table_row.get('associated_projects', '["All"]')
+                try:
+                    associated_projects = ast.literal_eval(associated_projects_str)
+                    project_display = "All Projects" if "All" in associated_projects else ", ".join(associated_projects)
+                except:
+                    project_display = "All Projects"
+                
+                with st.expander(f"📊 {table_name} ({table_type})"):
                     st.write(f"**Description:** {description}")
+                    st.write(f"**Available to:** {project_display}")
                     
                     # Show schema
                     schema = table_manager.get_table_schema(table_name)
@@ -2502,6 +2512,29 @@ def show_schema_management():
             description = st.text_area("Description", help="Describe what this table will store")
             table_type = st.selectbox("Table Type", ["data", "lookup", "configuration"], help="Select the type of table")
             
+            # Project association selection
+            st.write("**Project Association:**")
+            projects_df = db_manager.read_dataframe(None, 'projects')
+            project_options = ["All Projects"]
+            if not projects_df.empty:
+                project_options.extend(projects_df['Project_Name'].tolist())
+            
+            association_type = st.radio(
+                "Associate this table with:",
+                ["All Projects", "Specific Projects"],
+                help="Choose whether this table should be available to all projects or only specific ones"
+            )
+            
+            associated_projects = ["All"]
+            if association_type == "Specific Projects" and not projects_df.empty:
+                selected_projects = st.multiselect(
+                    "Select Projects:",
+                    projects_df['Project_Name'].tolist(),
+                    help="Choose which projects should have access to this table"
+                )
+                if selected_projects:
+                    associated_projects = selected_projects
+            
             st.write("**Define Fields:**")
             
             fields = []
@@ -2534,8 +2567,9 @@ def show_schema_management():
                     valid_fields = [f for f in fields if f['name'].strip()]
                     
                     if valid_fields:
-                        if table_manager.create_table(table_name, description, valid_fields):
-                            st.success(f"Table '{table_name}' created successfully!")
+                        if table_manager.create_table(table_name, description, valid_fields, associated_projects):
+                            project_list = "All Projects" if "All" in associated_projects else ", ".join(associated_projects)
+                            st.success(f"Table '{table_name}' created successfully for: {project_list}")
                             st.session_state.new_table_fields = [{'name': '', 'type': 'text', 'required': False, 'default': ''}]
                             st.rerun()
                         else:

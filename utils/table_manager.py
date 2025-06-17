@@ -56,13 +56,37 @@ class TableManager:
             return pd.DataFrame()
     
     def get_project_tables(self, project_name):
-        """Get available tables for a project"""
+        """Get available tables for a specific project"""
         try:
             tables_df = self.get_all_tables()
             if tables_df.empty:
                 return []
             
-            return tables_df['table_name'].tolist()
+            # Filter tables based on project associations
+            project_tables = []
+            for _, table in tables_df.iterrows():
+                table_name = table['table_name']
+                
+                # Check if table has associated_projects column (for backward compatibility)
+                if 'associated_projects' in table:
+                    associated_projects_str = table['associated_projects']
+                    try:
+                        associated_projects = ast.literal_eval(associated_projects_str)
+                    except:
+                        associated_projects = ["All"]  # Default for system tables
+                else:
+                    # Backward compatibility - system tables are available to all projects
+                    table_type = table.get('table_type', 'system')
+                    if table_type == 'system':
+                        associated_projects = ["All"]
+                    else:
+                        associated_projects = []
+                
+                # Include table if it's associated with this project or all projects
+                if "All" in associated_projects or project_name in associated_projects:
+                    project_tables.append(table_name)
+            
+            return project_tables
             
         except Exception as e:
             print(f"Error getting project tables: {str(e)}")
@@ -227,14 +251,20 @@ class TableManager:
             print(f"Error updating table data: {str(e)}")
             return False
     
-    def create_table(self, table_name, description, fields):
-        """Create a new table"""
+    def create_table(self, table_name, description, fields, associated_projects=None):
+        """Create a new table with optional project associations"""
         try:
+            # Clear cache first to get fresh data
+            self.clear_cache()
             tables_df = self.get_all_tables()
             
             # Check if table already exists
             if not tables_df.empty and table_name in tables_df['table_name'].values:
                 return False
+            
+            # Default to all projects if none specified
+            if associated_projects is None:
+                associated_projects = ["All"]
             
             # Create new table record
             new_table = pd.DataFrame([{
@@ -242,7 +272,8 @@ class TableManager:
                 'description': description,
                 'fields': str(fields),
                 'created_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'table_type': 'user-created'
+                'table_type': 'user-created',
+                'associated_projects': str(associated_projects)  # Store as string list
             }])
             
             # Append to existing tables
@@ -255,20 +286,24 @@ class TableManager:
             success = self.db_manager.write_dataframe(None, 'tables', updated_tables)
             
             if success:
-                # Update cache
+                # Clear and update cache
+                self.clear_cache()
                 st.session_state['tables_cache']['all_tables'] = updated_tables
                 
-                # Initialize table for all projects
+                # Initialize table for associated projects only
                 projects_df = self.db_manager.read_dataframe(None, 'projects')
                 if not projects_df.empty:
                     for _, project in projects_df.iterrows():
                         project_name = project['Project_Name']
-                        collection_name = table_name.lower().replace(' ', '_')
-                        columns = [field['name'] for field in fields if field.get('name')]
                         
-                        if columns:
-                            empty_df = pd.DataFrame(columns=columns)
-                            self.db_manager.write_dataframe(project_name, collection_name, empty_df)
+                        # Check if this project should have this table
+                        if "All" in associated_projects or project_name in associated_projects:
+                            collection_name = table_name.lower().replace(' ', '_')
+                            columns = [field['name'] for field in fields if field.get('name')]
+                            
+                            if columns:
+                                empty_df = pd.DataFrame(columns=columns)
+                                self.db_manager.write_dataframe(project_name, collection_name, empty_df)
             
             return success
             
