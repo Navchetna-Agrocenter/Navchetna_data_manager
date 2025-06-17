@@ -12,7 +12,7 @@ gatherUsageStats = false
 enableCORS = true
 enableXsrfProtection = true
 headless = true
-entrypoint = "app.py"
+entrypoint = "main_mongodb.py"
 fileWatcherType = "none"
 
 [runner]
